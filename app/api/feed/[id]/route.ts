@@ -34,7 +34,7 @@ export async function GET(
     const vevents = comp.getAllSubcomponents("vevent");
 
     const calendar = icalGenerator({
-      name: "Filtered University Schedule",
+      name: "Filtered THWS Schedule",
       timezone: "Europe/Berlin",
     });
 
