@@ -1,0 +1,8 @@
+import { pgTable, text, jsonb, timestamp, uuid } from "drizzle-orm/pg-core";
+
+export const feeds = pgTable("feeds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  originalUrl: text("original_url").notNull(),
+  selectedCourses: jsonb("selected_courses").notNull().$type<string[]>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
