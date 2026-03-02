@@ -13,7 +13,14 @@ export async function POST(request: Request) {
     if (!response.ok) {
       throw new Error(`Failed to fetch iCal feed: ${response.statusText}`);
     }
-    const data = await response.text();
+    const buffer = await response.arrayBuffer();
+    let data = "";
+    try {
+      data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch (e) {
+      // Fallback for iCal feeds using legacy encodings like the THWS one
+      data = new TextDecoder("iso-8859-1").decode(buffer);
+    }
     const jcalData = ICAL.parse(data);
     const comp = new ICAL.Component(jcalData);
     const vevents = comp.getAllSubcomponents("vevent");

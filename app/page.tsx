@@ -81,9 +81,33 @@ export default function Home() {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(feedUrl);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard
+        .writeText(feedUrl)
+        .then(() => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        })
+        .catch((err) => console.error("Clipboard API failed", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = feedUrl;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (error) {
+        console.error("Fallback copy failed", error);
+      } finally {
+        textArea.remove();
+      }
+    }
   };
 
   return (

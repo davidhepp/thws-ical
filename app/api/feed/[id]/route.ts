@@ -22,7 +22,13 @@ export async function GET(
     if (!response.ok) {
       throw new Error(`Failed to fetch original feed.`);
     }
-    const data = await response.text();
+    const buffer = await response.arrayBuffer();
+    let data = "";
+    try {
+      data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch (e) {
+      data = new TextDecoder("iso-8859-1").decode(buffer);
+    }
     const jcalData = ICAL.parse(data);
     const comp = new ICAL.Component(jcalData);
     const vevents = comp.getAllSubcomponents("vevent");
