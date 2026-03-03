@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "THWS iCal Filter",
-  description: "Filter your THWS iCal feed",
+  description: "Filter your THWS iCal feeds",
 };
 
 export default function RootLayout({

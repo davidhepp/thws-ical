@@ -3,37 +3,48 @@ import ICAL from "ical.js";
 
 export async function POST(request: Request) {
   try {
-    const { url } = await request.json();
+    const { urls } = await request.json();
 
-    if (!url) {
-      return NextResponse.json({ error: "URL is required" }, { status: 400 });
+    if (!urls || !Array.isArray(urls) || urls.length === 0) {
+      return NextResponse.json({ error: "URLs are required" }, { status: 400 });
     }
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch iCal feed: ${response.statusText}`);
-    }
-    const buffer = await response.arrayBuffer();
-    let data = "";
-    try {
-      data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-    } catch (e) {
-      // Fallback for iCal feeds using legacy encodings
-      data = new TextDecoder("iso-8859-1").decode(buffer);
-    }
-    const jcalData = ICAL.parse(data);
-    const comp = new ICAL.Component(jcalData);
-    const vevents = comp.getAllSubcomponents("vevent");
 
     const uniqueCourses = new Set<string>();
 
-    for (const vevent of vevents) {
-      const event = new ICAL.Event(vevent);
-      const summaryText = event.summary;
-      if (summaryText) {
-        uniqueCourses.add(summaryText);
-      }
-    }
+    await Promise.all(
+      urls.map(async (url) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch iCal feed: ${response.statusText}`,
+            );
+          }
+          const buffer = await response.arrayBuffer();
+          let data = "";
+          try {
+            data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+          } catch {
+            // Fallback for iCal feeds using legacy encodings
+            data = new TextDecoder("iso-8859-1").decode(buffer);
+          }
+          const jcalData = ICAL.parse(data);
+          const comp = new ICAL.Component(jcalData);
+          const vevents = comp.getAllSubcomponents("vevent");
+
+          for (const vevent of vevents) {
+            const event = new ICAL.Event(vevent);
+            const summaryText = event.summary;
+            if (summaryText) {
+              uniqueCourses.add(summaryText);
+            }
+          }
+        } catch (err) {
+          console.error(`Error parsing feed ${url}:`, err);
+          throw err;
+        }
+      }),
+    );
 
     return NextResponse.json({
       courses: Array.from(uniqueCourses).sort(),

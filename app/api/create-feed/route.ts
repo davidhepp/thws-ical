@@ -4,19 +4,29 @@ import { feeds } from "@/db/schema";
 
 export async function POST(request: Request) {
   try {
-    const { originalUrl, selectedCourses } = await request.json();
+    const { urls, selectedCourses } = await request.json();
 
-    if (!originalUrl || !selectedCourses || !Array.isArray(selectedCourses)) {
+    if (
+      !urls ||
+      !Array.isArray(urls) ||
+      urls.length === 0 ||
+      !selectedCourses ||
+      !Array.isArray(selectedCourses)
+    ) {
       return NextResponse.json(
         { error: "Invalid input data" },
         { status: 400 },
       );
     }
 
+    const originalUrl = urls[0];
+    const additionalUrls = urls.length > 1 ? urls.slice(1) : [];
+
     const [newFeed] = await db
       .insert(feeds)
       .values({
         originalUrl,
+        additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
         selectedCourses,
       })
       .returning();

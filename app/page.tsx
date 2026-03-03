@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Plus, ArrowRight, Loader2, Calendar, Check } from "lucide-react";
+import {
+  Copy,
+  Plus,
+  ArrowRight,
+  Loader2,
+  Calendar,
+  Check,
+  Search,
+} from "lucide-react";
 
 export default function Home() {
-  const [originalUrl, setOriginalUrl] = useState("");
+  const [urls, setUrls] = useState<string[]>([""]);
   const [courses, setCourses] = useState<string[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [feedUrl, setFeedUrl] = useState("");
@@ -12,6 +20,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isCopied, setIsCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchCourses = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +31,7 @@ export default function Home() {
       const res = await fetch("/api/parse-feed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: originalUrl }),
+        body: JSON.stringify({ urls: urls.filter((u) => u.trim() !== "") }),
       });
 
       const data = await res.json();
@@ -33,8 +42,8 @@ export default function Home() {
 
       setCourses(data.courses);
       setStep(2);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch courses");
     } finally {
       setLoading(false);
     }
@@ -61,7 +70,10 @@ export default function Home() {
       const res = await fetch("/api/create-feed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originalUrl, selectedCourses }),
+        body: JSON.stringify({
+          urls: urls.filter((u) => u.trim() !== ""),
+          selectedCourses,
+        }),
       });
 
       const data = await res.json();
@@ -73,8 +85,8 @@ export default function Home() {
       const newFeedUrl = `${window.location.origin}/api/feed/${data.id}`;
       setFeedUrl(newFeedUrl);
       setStep(3);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create feed");
     } finally {
       setLoading(false);
     }
@@ -132,26 +144,65 @@ export default function Home() {
                 Connect your schedule
               </h2>
               <p className="text-slate-500">
-                Paste your iCal link to get started.
+                Paste one or more iCal links to get started.
               </p>
             </div>
 
             <form onSubmit={fetchCourses} className="space-y-4">
-              <div className="relative">
-                <input
-                  type="url"
-                  placeholder="https://fiw.thws.de/.../BaInf6_2026ss.ics"
-                  value={originalUrl}
-                  onChange={(e) => setOriginalUrl(e.target.value)}
-                  required
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-slate-200 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all bg-white text-slate-800 placeholder:text-slate-400 shadow-sm"
-                />
-              </div>
+              {urls.map((url, idx) => (
+                <div key={idx} className="relative">
+                  <input
+                    type="url"
+                    placeholder="https://fiw.thws.de/.../BaInf6_2026ss.ics"
+                    value={url}
+                    onChange={(e) => {
+                      const newUrls = [...urls];
+                      newUrls[idx] = e.target.value;
+                      setUrls(newUrls);
+                    }}
+                    required={idx === 0}
+                    className="w-full pl-5 pr-12 py-4 rounded-2xl border border-slate-200 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all bg-white text-slate-800 placeholder:text-slate-400 shadow-sm"
+                  />
+                  {urls.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newUrls = [...urls];
+                        newUrls.splice(idx, 1);
+                        setUrls(newUrls);
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+                      title="Remove"
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M18 6L6 18M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => setUrls([...urls, ""])}
+                className="w-full flex items-center justify-center gap-2 py-2 text-sm rounded-xl font-medium transition-all text-orange-600/80 hover:bg-orange-50 hover:text-orange-600"
+              >
+                <Plus className="w-4 h-4" /> Add another
+              </button>
 
               <button
                 type="submit"
-                disabled={loading || !originalUrl}
-                className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-900/20"
+                disabled={loading || !urls[0]}
+                className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-900/20 mt-4"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -176,37 +227,52 @@ export default function Home() {
               </p>
             </div>
 
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search courses..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all bg-white text-sm shadow-sm"
+              />
+            </div>
+
             <div className="bg-slate-50 rounded-2xl border border-slate-100 p-2 max-h-[400px] overflow-y-auto space-y-2">
-              {courses.map((course) => {
-                const isSelected = selectedCourses.includes(course);
-                return (
-                  <button
-                    key={course}
-                    onClick={() => toggleCourse(course)}
-                    className={`w-full flex items-center gap-4 text-left p-4 rounded-xl transition-all ${
-                      isSelected
-                        ? "bg-white border-blue-500 shadow-sm border ring-1 ring-blue-500"
-                        : "bg-white border-transparent hover:border-slate-200 border"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      readOnly
-                      className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all pointer-events-none"
-                    />
-                    <span
-                      className={`text-sm ${
+              {courses
+                .filter((course) =>
+                  course.toLowerCase().includes(searchQuery.toLowerCase()),
+                )
+                .map((course) => {
+                  const isSelected = selectedCourses.includes(course);
+                  return (
+                    <button
+                      key={course}
+                      onClick={() => toggleCourse(course)}
+                      className={`w-full flex items-center gap-4 text-left p-4 rounded-xl transition-all ${
                         isSelected
-                          ? "text-slate-900 font-medium"
-                          : "text-slate-600"
+                          ? "bg-white border-blue-500 shadow-sm border ring-1 ring-blue-500"
+                          : "bg-white border-transparent hover:border-slate-200 border"
                       }`}
                     >
-                      {course}
-                    </span>
-                  </button>
-                );
-              })}
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        readOnly
+                        className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all pointer-events-none"
+                      />
+                      <span
+                        className={`text-sm ${
+                          isSelected
+                            ? "text-slate-900 font-medium"
+                            : "text-slate-600"
+                        }`}
+                      >
+                        {course}
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
 
             <div className="flex gap-4">
@@ -219,7 +285,7 @@ export default function Home() {
               <button
                 onClick={generateFeed}
                 disabled={loading || selectedCourses.length === 0}
-                className="flex-2 flex items-center justify-center gap-2 bg-orange-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30"
+                className="flex-2 flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-600/30"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -240,7 +306,7 @@ export default function Home() {
                 <Calendar className="w-10 h-10" />
               </div>
               <h2 className="text-2xl font-semibold text-slate-800">
-                You're all set!
+                You&apos;re all set!
               </h2>
               <p className="text-slate-500 max-w-sm mx-auto">
                 Subscribe to this URL in Apple Calendar, Google Calendar, or
@@ -273,10 +339,11 @@ export default function Home() {
             <button
               onClick={() => {
                 setStep(1);
-                setOriginalUrl("");
+                setUrls([""]);
                 setCourses([]);
                 setSelectedCourses([]);
                 setFeedUrl("");
+                setSearchQuery("");
               }}
               className="w-full py-4 rounded-2xl font-medium text-slate-600 hover:bg-slate-100 transition-all hover:text-slate-900 border border-transparent"
             >
