@@ -90,6 +90,7 @@ export default function Home() {
         })
         .catch((err) => console.error("Clipboard API failed", err));
     } else {
+      // Fallback for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = feedUrl;
       textArea.style.position = "fixed";
@@ -112,13 +113,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
-      {/* Dynamic Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-400/20 rounded-full blur-3xl" />
-
       <main className="w-full max-w-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-8 sm:p-12 relative z-10">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-amber-600">
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-amber-600 to-orange-600">
             THWS iCal Filter
           </h1>
         </div>
@@ -147,7 +144,7 @@ export default function Home() {
                   value={originalUrl}
                   onChange={(e) => setOriginalUrl(e.target.value)}
                   required
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-slate-200 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all bg-white text-slate-800 placeholder:text-slate-400 shadow-sm"
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-slate-200 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all bg-white text-slate-800 placeholder:text-slate-400 shadow-sm"
                 />
               </div>
 
@@ -222,7 +219,7 @@ export default function Home() {
               <button
                 onClick={generateFeed}
                 disabled={loading || selectedCourses.length === 0}
-                className="flex-[2] flex items-center justify-center gap-2 bg-orange-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30"
+                className="flex-2 flex items-center justify-center gap-2 bg-orange-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30"
               >
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -297,6 +294,10 @@ export default function Home() {
           >
             davidhepp
           </a>
+          <br />
+          <span className="text-xs text-gray-500 mt-2 opacity-50">
+            This project is not affiliated with the THWS
+          </span>
         </div>
       </main>
     </div>

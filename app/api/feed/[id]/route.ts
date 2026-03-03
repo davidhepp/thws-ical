@@ -72,7 +72,6 @@ export async function GET(
         (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
       const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
 
-      // IMPORTANT: keep wall-clock components; do NOT call toJSDate()
       const start = DateTime.fromObject(
         {
           year: s.year,
@@ -107,11 +106,17 @@ export async function GET(
       });
     }
 
+    const urlParts = feedConfig.originalUrl.split("/");
+    const lastSegment = urlParts.pop() || "schedule";
+    const baseName = lastSegment.endsWith(".ics")
+      ? lastSegment.slice(0, -4)
+      : lastSegment;
+    const filename = `${baseName}_filtered.ics`;
+
     return new NextResponse(calendar.toString(), {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
-        // inline is often nicer for subscription URLs; keep attachment if you want downloads
-        "Content-Disposition": 'inline; filename="filtered-schedule.ics"',
+        "Content-Disposition": `inline; filename="${filename}"`,
         "Cache-Control": "no-store",
       },
     });

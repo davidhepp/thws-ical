@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     try {
       data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
     } catch (e) {
-      // Fallback for iCal feeds using legacy encodings like the THWS one
+      // Fallback for iCal feeds using legacy encodings
       data = new TextDecoder("iso-8859-1").decode(buffer);
     }
     const jcalData = ICAL.parse(data);
