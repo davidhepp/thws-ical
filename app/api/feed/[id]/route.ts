@@ -31,6 +31,9 @@ export async function GET(
     }
     const jcalData = ICAL.parse(data);
     const comp = new ICAL.Component(jcalData);
+    for (const vtz of comp.getAllSubcomponents("vtimezone")) {
+      ICAL.TimezoneService.register(vtz);
+    }
     const vevents = comp.getAllSubcomponents("vevent");
 
     const calendar = icalGenerator({
