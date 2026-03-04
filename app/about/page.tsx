@@ -1,4 +1,5 @@
-import { Calendar, Github, Filter, Link } from "lucide-react";
+import { Calendar, Github, Filter, Link as LinkIcon } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
  */
 const steps = [
   {
-    icon: Link,
+    icon: LinkIcon,
     title: "Paste your iCal URL",
     description:
       "Copy one or more iCal links from your university's timetable and paste it into the tool.",
@@ -97,12 +98,12 @@ export default function AboutPage() {
 
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <a
+          <Link
             href="/"
             className="flex-1 flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-medium transition-all active:scale-[0.98] shadow-lg shadow-slate-900/20 text-center cursor-default"
           >
             Get started
-          </a>
+          </Link>
           <a
             href="https://github.com/davidhepp/thws-ical"
             target="_blank"

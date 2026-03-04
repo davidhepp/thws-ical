@@ -17,7 +17,7 @@ vi.mock("ical.js", () => {
       },
       Event: class {
         summary: string;
-        constructor(vevent: any) {
+        constructor(vevent: Record<string, string>) {
           this.summary = vevent.summary;
         }
       },

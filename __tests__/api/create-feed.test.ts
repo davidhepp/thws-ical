@@ -8,7 +8,7 @@ const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
 
 vi.mock("@/db", () => ({
   db: {
-    insert: (...args: any[]) => mockInsert(...args),
+    insert: (...args: unknown[]) => mockInsert(...args),
   },
 }));
 
