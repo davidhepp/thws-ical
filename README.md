@@ -18,6 +18,7 @@ A web app that lets you subscribe to a filtered version of your THWS lecture sch
 | iCal parsing      | [ical.js](https://github.com/kewisch/ical.js)                 |
 | iCal generation   | [ical-generator](https://github.com/sebbo2002/ical-generator) |
 | Timezone handling | [Luxon](https://moment.github.io/luxon/)                      |
+| Testing           | [Vitest](https://vitest.dev/)                                 |
 
 ## Getting Started
 
@@ -85,6 +86,24 @@ feeds {
 ```
 
 `additional_urls` is nullable so all rows created before multi-feed support was added continue to work without any migration.
+
+## Testing
+
+The project uses **Vitest** and **React Testing Library** for unit and integration testing. We test the core API routes by mocking external dependencies like database calls and internal fetches.
+
+### Running tests
+
+To run the test suite once:
+
+```bash
+npm run test
+```
+
+To run tests in watch mode (reruns on file changes):
+
+```bash
+npm run test:watch
+```
 
 ## Deployment
 
