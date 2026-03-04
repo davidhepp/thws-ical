@@ -11,6 +11,10 @@ import {
   Search,
 } from "lucide-react";
 
+/**
+ * note:
+ * single page app because I cba to use modules for this
+ */
 export default function Home() {
   const [urls, setUrls] = useState<string[]>([""]);
   const [courses, setCourses] = useState<string[]>([]);
@@ -352,19 +356,12 @@ export default function Home() {
           </div>
         )}
         <div className="mt-8 text-center text-sm text-slate-500">
-          made with ❤️ by{" "}
           <a
-            href="https://github.com/davidhepp"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/about"
             className="font-medium text-slate-700 hover:text-orange-600 transition-colors underline underline-offset-4 decoration-slate-300 hover:decoration-orange-600"
           >
-            davidhepp
+            learn more
           </a>
-          <br />
-          <span className="text-xs text-gray-500 mt-2 opacity-50">
-            This project is not affiliated with the THWS
-          </span>
         </div>
       </main>
     </div>
