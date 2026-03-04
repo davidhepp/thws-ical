@@ -124,7 +124,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
+    <div className="min-h-dvh bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
       <main className="w-full max-w-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-8 sm:p-12 relative z-10">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-amber-600 to-orange-600">

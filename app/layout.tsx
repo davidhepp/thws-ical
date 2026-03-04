@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "THWS iCal Filter",
   description: "Filter your THWS iCal feeds",
+};
+
+export const viewport: Viewport = {
+  // Extend layout under the notch/home-indicator on iOS
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
