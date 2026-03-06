@@ -4,7 +4,7 @@ import { feeds } from "@/db/schema";
 
 export async function POST(request: Request) {
   try {
-    const { urls, selectedCourses } = await request.json();
+    const { urls, selectedCourses, selectedGroups } = await request.json();
 
     if (
       !urls ||
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
         originalUrl,
         additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
         selectedCourses,
+        selectedGroups: selectedGroups && Object.keys(selectedGroups).some(course => selectedGroups[course]?.length > 0) ? selectedGroups : null,
       })
       .returning();
 
