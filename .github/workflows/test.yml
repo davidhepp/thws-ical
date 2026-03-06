@@ -35,6 +35,9 @@ jobs:
       - name: Run Tests
         run: npm run test
 
+      - name: Build
+        run: npm run build
+
       - name: "notify vercel"
         uses: "vercel/repository-dispatch/actions/status@v1"
         with:
