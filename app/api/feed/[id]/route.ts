@@ -109,7 +109,7 @@ export async function GET(
     });
 
     const selectedCoursesSet = new Set(feedConfig.selectedCourses || []);
-    const selectedGroups = feedConfig.selectedGroups as Record<string, string[]> || {};
+    const selectedGroups = (feedConfig.selectedGroups as Record<string, string[]> | undefined) || {};
 
     for (const jcalData of feedResponses) {
       const comp = new ICAL.Component(jcalData);

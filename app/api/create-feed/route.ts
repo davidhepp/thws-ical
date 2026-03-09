@@ -22,14 +22,19 @@ export async function POST(request: Request) {
     const originalUrl = urls[0];
     const additionalUrls = urls.length > 1 ? urls.slice(1) : [];
 
+    const feedData: any = {
+      originalUrl,
+      additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
+      selectedCourses,
+    };
+
+    if (selectedGroups && Object.keys(selectedGroups).some(course => selectedGroups[course]?.length > 0)) {
+      feedData.selectedGroups = selectedGroups;
+    }
+
     const [newFeed] = await db
       .insert(feeds)
-      .values({
-        originalUrl,
-        additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
-        selectedCourses,
-        selectedGroups: selectedGroups && Object.keys(selectedGroups).some(course => selectedGroups[course]?.length > 0) ? selectedGroups : null,
-      })
+      .values(feedData)
       .returning();
 
     return NextResponse.json({ id: newFeed.id });
