@@ -13,6 +13,44 @@ function safeLuxonZone(tzid: string | undefined, fallback = "Europe/Berlin") {
   return test.isValid ? tzid : fallback;
 }
 
+function extractGroupsFromText(text?: string) {
+  if (!text) return [] as string[];
+  const groups = new Set<string>();
+
+  // Common patterns like "Gruppe: XYZ" or "Grp: XYZ" or just "Gruppe XYZ" or "Gr ABC"
+  const patterns = [
+    /Gruppe[s]?\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,  // "Gruppe: ..." or "Gruppe - ..."
+    /Gr\.\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,        // "Gr.: ..." or "Gr. - ..."
+    /\bGruppe\b\s+([A-Za-z0-9\/_\-]+)/gi,           // "Gruppe XYZ"
+    /\bGr\b\.?\s+([A-Za-z0-9\/_\-]+)/gi,            // "Gr XYZ" or "Gr. XYZ"
+  ];
+
+  for (const p of patterns) {
+    let m;
+    while ((m = p.exec(text))) {
+      if (m[1]) {
+        m[1]
+          .split(/[,;\/]/)
+          .map((s) => s.trim())
+          .filter((g) => g.length >= 2 && !/^[-_\s]*$/.test(g) && /[A-Za-z0-9]/.test(g))
+          .map((g) => g.replace(/^Gruppe\s+/i, ''))  // Remove "Gruppe " prefix if present
+          .forEach((g) => groups.add(g));
+      }
+    }
+  }
+
+  const paren = /\(([A-Za-z0-9\-_/]+)\)/g;
+  let pm;
+  while ((pm = paren.exec(text))) {
+    const token = pm[1];
+    if (token && token.length >= 2 && !/^[-_\s]*$/.test(token) && /[A-Za-z0-9]/.test(token)) {
+      groups.add(token);
+    }
+  }
+
+  return Array.from(groups);
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -68,7 +106,8 @@ export async function GET(
         : "Europe/Berlin",
     });
 
-    const selectedCoursesSet = new Set(feedConfig.selectedCourses);
+    const selectedCoursesSet = new Set(feedConfig.selectedCourses || []);
+    const selectedGroups = (feedConfig.selectedGroups as Record<string, string[]> | undefined) || {};
 
     for (const jcalData of feedResponses) {
       const comp = new ICAL.Component(jcalData);
@@ -79,6 +118,14 @@ export async function GET(
         const summary = event.summary;
 
         if (!summary || !selectedCoursesSet.has(summary)) continue;
+
+        // Check group filtering for this course
+        const courseSelectedGroups = selectedGroups[summary];
+        if (courseSelectedGroups && courseSelectedGroups.length > 0) {
+          const eventGroups = extractGroupsFromText(event.description);
+          const hasMatchingGroup = eventGroups.some((g) => courseSelectedGroups.includes(g));
+          if (!hasMatchingGroup) continue;
+        }
 
         const s = event.startDate;
         const e = event.endDate;
