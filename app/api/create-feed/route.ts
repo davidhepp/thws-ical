@@ -22,7 +22,12 @@ export async function POST(request: Request) {
     const originalUrl = urls[0];
     const additionalUrls = urls.length > 1 ? urls.slice(1) : [];
 
-    const feedData: any = {
+    const feedData: {
+      originalUrl: string;
+      additionalUrls: string[] | null;
+      selectedCourses: string[];
+      selectedGroups?: Record<string, string[]>;
+    } = {
       originalUrl,
       additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
       selectedCourses,

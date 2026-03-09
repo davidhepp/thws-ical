@@ -15,7 +15,6 @@ function extractGroupsFromText(text?: string) {
 
   for (const p of patterns) {
     let m;
-    // eslint-disable-next-line no-cond-assign
     while ((m = p.exec(text))) {
       if (m[1]) {
         m[1]
@@ -31,7 +30,6 @@ function extractGroupsFromText(text?: string) {
   // Also try to capture short codes inside parentheses that look like a group
   const paren = /\(([A-Za-z0-9\-_/]+)\)/g;
   let pm;
-  // eslint-disable-next-line no-cond-assign
   while ((pm = paren.exec(text))) {
     const token = pm[1];
     if (token && token.length >= 2 && !/^[-_\s]*$/.test(token) && /[A-Za-z0-9]/.test(token)) {

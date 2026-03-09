@@ -14,7 +14,6 @@ import {
 export default function Home() {
   const [urls, setUrls] = useState<string[]>([""]);
   const [courses, setCourses] = useState<string[]>([]);
-  const [groups, setGroups] = useState<string[]>([]);
   const [courseGroups, setCourseGroups] = useState<Record<string, string[]>>({});
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<Record<string, string[]>>({});
@@ -44,7 +43,6 @@ export default function Home() {
       }
 
       setCourses(data.courses || []);
-      setGroups(data.groups || []);
       setCourseGroups(data.courseGroups || {});
       setStep(2);
     } catch (err: unknown) {
