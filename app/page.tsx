@@ -243,6 +243,17 @@ export default function Home() {
               </p>
             </div>
 
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search courses..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all bg-white text-sm shadow-sm"
+              />
+            </div>
+
             <div className="bg-slate-50 rounded-2xl border border-slate-100 p-2 max-h-[400px] overflow-y-auto space-y-2">
               {courses
                 .filter((course) =>
