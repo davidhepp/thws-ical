@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { db } from "@/db";
 import { feeds } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { Redis } from "@upstash/redis";
 
 function safeLuxonZone(tzid: string | undefined, fallback = "Europe/Berlin") {
   if (!tzid) return fallback;
@@ -23,6 +24,31 @@ export async function GET(
     const [feedConfig] = await db.select().from(feeds).where(eq(feeds.id, id));
     if (!feedConfig) {
       return new NextResponse("Feed not found", { status: 404 });
+    }
+
+    const urlParts = feedConfig.originalUrl.split("/");
+    const lastSegment = urlParts.pop() || "schedule";
+    const baseName = lastSegment.endsWith(".ics")
+      ? lastSegment.slice(0, -4)
+      : lastSegment;
+    const filename = `${baseName}_filtered.ics`;
+
+    const cacheKey = `feed:${id}`;
+    let redis: Redis | null = null;
+    try {
+      redis = Redis.fromEnv();
+      const cachedCalendar = await redis.get<string>(cacheKey);
+      if (cachedCalendar) {
+        return new NextResponse(cachedCalendar, {
+          headers: {
+            "Content-Type": "text/calendar; charset=utf-8",
+            "Content-Disposition": `inline; filename="${filename}"`,
+            "Cache-Control": "public, s-maxage=900, stale-while-revalidate=60",
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("Redis caching error:", e);
     }
 
     const urlsToFetch = [
@@ -123,18 +149,21 @@ export async function GET(
       }
     }
 
-    const urlParts = feedConfig.originalUrl.split("/");
-    const lastSegment = urlParts.pop() || "schedule";
-    const baseName = lastSegment.endsWith(".ics")
-      ? lastSegment.slice(0, -4)
-      : lastSegment;
-    const filename = `${baseName}_filtered.ics`;
+    const calendarString = calendar.toString();
 
-    return new NextResponse(calendar.toString(), {
+    if (redis) {
+      try {
+        await redis.set(cacheKey, calendarString, { ex: 900 });
+      } catch (e) {
+        console.warn("Error setting redis cache:", e);
+      }
+    }
+
+    return new NextResponse(calendarString, {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `inline; filename="${filename}"`,
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, s-maxage=900, stale-while-revalidate=60",
       },
     });
   } catch (error) {

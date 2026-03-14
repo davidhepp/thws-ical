@@ -15,6 +15,7 @@ A web app that lets you subscribe to a filtered version of your THWS lecture sch
 | Framework         | [Next.js 16](https://nextjs.org/) (App Router)                |
 | Database          | [Neon](https://neon.tech/) (serverless PostgreSQL)            |
 | ORM               | [Drizzle ORM](https://orm.drizzle.team/)                      |
+| Cache             | [Upstash Redis](https://upstash.com/)                         |
 | iCal parsing      | [ical.js](https://github.com/kewisch/ical.js)                 |
 | iCal generation   | [ical-generator](https://github.com/sebbo2002/ical-generator) |
 | Timezone handling | [Luxon](https://moment.github.io/luxon/)                      |
@@ -38,11 +39,15 @@ Create a PostgreSQL database on [Neon](https://neon.tech/) or any provider of yo
 cp env.example .env.local
 ```
 
-Open `.env.local` and fill in your connection string:
+Open `.env.local` and fill in your values:
 
 ```
 DATABASE_URL="postgres://..."
+UPSTASH_REDIS_REST_URL="https://..."
+UPSTASH_REDIS_REST_TOKEN="..."
 ```
+
+Create a free Redis database at [Upstash](https://console.upstash.com/) or any other provider of your choice and copy the REST URL and token from the dashboard.
 
 ### 3. Push the schema
 
@@ -64,6 +69,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 2. **Select courses** — the app fetches and parses all feeds, then shows a searchable list of every unique event summary. Tick the ones you want.
 3. **Copy your feed URL** — the app saves your configuration to the database and returns a stable `/api/feed/<id>` URL.
 4. **Subscribe** — add that URL to your calendar app. It always serves a freshly filtered version of the upstream schedule.
+
+## Caching
+
+Generated feeds are cached in **Upstash Redis** for **15 minutes** to reduce database queries and upstream fetches. This is especially useful when many calendar clients (e.g., iOS) poll the feed URL frequently. After 15 minutes the cache expires and the next request fetches fresh data from the source feeds.
 
 ## API Routes
 
@@ -107,7 +116,11 @@ npm run test:watch
 
 ## Deployment
 
-Deploy to anywhere you like. Add `DATABASE_URL` as an environment variable in the project settings.
+Deploy to anywhere you like. Add the following environment variables in your project settings:
+
+- `DATABASE_URL` — Neon PostgreSQL connection string
+- `UPSTASH_REDIS_REST_URL` — Upstash Redis REST URL
+- `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis REST token
 
 ## License
 
