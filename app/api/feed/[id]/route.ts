@@ -6,13 +6,9 @@ import { db } from "@/db";
 import { feeds } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Redis } from "@upstash/redis";
-
-function safeLuxonZone(tzid: string | undefined, fallback = "Europe/Berlin") {
-  if (!tzid) return fallback;
-  // Luxon/IANA zone validation
-  const test = DateTime.now().setZone(tzid);
-  return test.isValid ? tzid : fallback;
-}
+import { safeLuxonZone } from "@/lib/datetime/safeLuxonZone";
+import { decodeFeed } from "@/lib/ical/decodeFeed";
+import { filterEvents } from "@/lib/ical/filterEvents";
 
 export async function GET(
   request: Request,
@@ -63,12 +59,7 @@ export async function GET(
           throw new Error(`Failed to fetch original feed from ${url}`);
         }
         const buffer = await response.arrayBuffer();
-        let data = "";
-        try {
-          data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-        } catch {
-          data = new TextDecoder("iso-8859-1").decode(buffer);
-        }
+        const data = decodeFeed(buffer);
         return ICAL.parse(data);
       }),
     );
@@ -94,59 +85,52 @@ export async function GET(
         : "Europe/Berlin",
     });
 
-    const selectedCoursesSet = new Set(feedConfig.selectedCourses);
+    const filteredEvents = filterEvents(
+      feedResponses,
+      feedConfig.selectedCourses,
+    );
 
-    for (const jcalData of feedResponses) {
-      const comp = new ICAL.Component(jcalData);
-      const vevents = comp.getAllSubcomponents("vevent");
+    for (const event of filteredEvents) {
+      const s = event.startDate;
+      const e = event.endDate;
 
-      for (const vevent of vevents) {
-        const event = new ICAL.Event(vevent);
-        const summary = event.summary;
+      // Prefer the event's TZID if present; otherwise fallback to Europe/Berlin
+      const eventTzidRaw =
+        (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
+      const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
 
-        if (!summary || !selectedCoursesSet.has(summary)) continue;
+      const start = DateTime.fromObject(
+        {
+          year: s.year,
+          month: s.month,
+          day: s.day,
+          hour: s.hour,
+          minute: s.minute,
+          second: s.second,
+        },
+        { zone: eventTzid },
+      );
 
-        const s = event.startDate;
-        const e = event.endDate;
+      const end = DateTime.fromObject(
+        {
+          year: e.year,
+          month: e.month,
+          day: e.day,
+          hour: e.hour,
+          minute: e.minute,
+          second: e.second,
+        },
+        { zone: eventTzid },
+      );
 
-        // Prefer the event's TZID if present; otherwise fallback to Europe/Berlin
-        const eventTzidRaw =
-          (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
-        const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
-
-        const start = DateTime.fromObject(
-          {
-            year: s.year,
-            month: s.month,
-            day: s.day,
-            hour: s.hour,
-            minute: s.minute,
-            second: s.second,
-          },
-          { zone: eventTzid },
-        );
-
-        const end = DateTime.fromObject(
-          {
-            year: e.year,
-            month: e.month,
-            day: e.day,
-            hour: e.hour,
-            minute: e.minute,
-            second: e.second,
-          },
-          { zone: eventTzid },
-        );
-
-        calendar.createEvent({
-          start,
-          end,
-          timezone: eventTzid, // ensures DTSTART/DTEND keep TZID
-          summary,
-          description: event.description,
-          location: event.location,
-        });
-      }
+      calendar.createEvent({
+        start,
+        end,
+        timezone: eventTzid, // ensures DTSTART/DTEND keep TZID
+        summary: event.summary,
+        description: event.description,
+        location: event.location,
+      });
     }
 
     const calendarString = calendar.toString();

@@ -1,29 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/parse-feed/route";
 
-// Mock ICAL
-vi.mock("ical.js", () => {
-  return {
-    default: {
-      parse: vi.fn(),
-      Component: class {
-        getAllSubcomponents() {
-          return [
-            { summary: "Course A" },
-            { summary: "Course B" },
-            { summary: "Course A" }, // Duplicate to test Set logic
-          ];
-        }
-      },
-      Event: class {
-        summary: string;
-        constructor(vevent: Record<string, string>) {
-          this.summary = vevent.summary;
-        }
-      },
-    },
-  };
-});
+const createFeedBuffer = (text: string, encoding = "utf-8") => {
+  if (encoding === "utf-8") {
+    return new TextEncoder().encode(text).buffer;
+  } else {
+    const arr = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) {
+      arr[i] = text.charCodeAt(i);
+    }
+    return arr.buffer;
+  }
+};
 
 describe("POST /api/parse-feed", () => {
   beforeEach(() => {
@@ -41,39 +29,116 @@ describe("POST /api/parse-feed", () => {
     expect(data.error).toBe("URLs are required");
   });
 
-  it("should parse feeds and return unique courses sorted", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
-    });
+  it("should merge multiple URLs correctly into unique sorted courses", async () => {
+    const ical1 = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Course A\nEND:VEVENT\nEND:VCALENDAR`;
+    const ical2 = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Course B\nEND:VEVENT\nBEGIN:VEVENT\nSUMMARY:Course A\nEND:VEVENT\nEND:VCALENDAR`;
+
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(createFeedBuffer(ical1)),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(createFeedBuffer(ical2)),
+      });
 
     const req = new Request("http://localhost:3000/api/parse-feed", {
       method: "POST",
-      body: JSON.stringify({ urls: ["http://example.com/feed.ics"] }),
+      body: JSON.stringify({ urls: ["http://feed1.ics", "http://feed2.ics"] }),
     });
 
     const res = await POST(req);
     expect(res.status).toBe(200);
     const data = await res.json();
-
     expect(data.courses).toEqual(["Course A", "Course B"]);
-    expect(global.fetch).toHaveBeenCalledWith("http://example.com/feed.ics");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("should return 500 if fetch fails", async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      statusText: "Not Found",
+  it("should handle empty summaries gracefully", async () => {
+    const ical = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nEND:VEVENT\nBEGIN:VEVENT\nSUMMARY:\nEND:VEVENT\nEND:VCALENDAR`;
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(createFeedBuffer(ical)),
     });
 
     const req = new Request("http://localhost:3000/api/parse-feed", {
       method: "POST",
-      body: JSON.stringify({ urls: ["http://example.com/broken.ics"] }),
+      body: JSON.stringify({ urls: ["http://empty.ics"] }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.courses).toEqual([]);
+  });
+
+  it("should fail entire request if one URL fails (partial failure behavior)", async () => {
+    const ical1 = `BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Course A\nEND:VEVENT\nEND:VCALENDAR`;
+
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(createFeedBuffer(ical1)),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        statusText: "Not Found",
+      });
+
+    const req = new Request("http://localhost:3000/api/parse-feed", {
+      method: "POST",
+      body: JSON.stringify({ urls: ["http://good.ics", "http://bad.ics"] }),
     });
 
     const res = await POST(req);
     expect(res.status).toBe(500);
     const data = await res.json();
     expect(data.error).toBe("Failed to parse iCal feed. Please check the URL.");
+  });
+
+  it("should throw on invalid ICS content (and return 500)", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(createFeedBuffer("NOT AN ICAL")),
+    });
+
+    const req = new Request("http://localhost:3000/api/parse-feed", {
+      method: "POST",
+      body: JSON.stringify({ urls: ["http://invalid.ics"] }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toBe("Failed to parse iCal feed. Please check the URL.");
+  });
+
+  it("should fallback to ISO-8859-1 for invalid UTF-8 payload", async () => {
+    // 0xE4 is 'ä' in ISO-8859-1 and invalid UTF-8 block start
+    const buffer = new Uint8Array([
+      ...new TextEncoder().encode(
+        "BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Maths ",
+      ),
+      0xe4,
+      ...new TextEncoder().encode("\nEND:VEVENT\nEND:VCALENDAR"),
+    ]).buffer;
+
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(buffer),
+    });
+
+    const req = new Request("http://localhost:3000/api/parse-feed", {
+      method: "POST",
+      body: JSON.stringify({ urls: ["http://iso.ics"] }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.courses).toEqual(["Maths ä"]);
   });
 });
