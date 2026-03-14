@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import ICAL from "ical.js";
+import { decodeFeed } from "@/lib/ical/decodeFeed";
+import { extractCourses } from "@/lib/ical/extractCourses";
 
 export async function POST(request: Request) {
   try {
@@ -9,9 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "URLs are required" }, { status: 400 });
     }
 
-    const uniqueCourses = new Set<string>();
-
-    await Promise.all(
+    const parsedFeeds = await Promise.all(
       urls.map(async (url) => {
         try {
           const response = await fetch(url);
@@ -21,24 +21,8 @@ export async function POST(request: Request) {
             );
           }
           const buffer = await response.arrayBuffer();
-          let data = "";
-          try {
-            data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-          } catch {
-            // Fallback for iCal feeds using legacy encodings
-            data = new TextDecoder("iso-8859-1").decode(buffer);
-          }
-          const jcalData = ICAL.parse(data);
-          const comp = new ICAL.Component(jcalData);
-          const vevents = comp.getAllSubcomponents("vevent");
-
-          for (const vevent of vevents) {
-            const event = new ICAL.Event(vevent);
-            const summaryText = event.summary;
-            if (summaryText) {
-              uniqueCourses.add(summaryText);
-            }
-          }
+          const data = decodeFeed(buffer);
+          return ICAL.parse(data);
         } catch (err) {
           console.error(`Error parsing feed ${url}:`, err);
           throw err;
@@ -47,7 +31,7 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({
-      courses: Array.from(uniqueCourses).sort(),
+      courses: extractCourses(parsedFeeds),
     });
   } catch (error) {
     console.error("Error parsing feed:", error);
