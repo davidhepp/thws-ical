@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "@/app/api/feed/[id]/route";
-import ICAL from "ical.js";
 
 // Mocks
 const mockSelect = vi.fn();

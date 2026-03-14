@@ -5,6 +5,8 @@ import ICAL from "ical.js";
  * Excludes events without a summary or whose summary isn't selected.
  */
 export function filterEvents(
+  // note: has to be any[] because ical.js returns nested arrays
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jcalDataArray: any[],
   selectedCourses: string[] | Set<string>,
 ): ICAL.Event[] {

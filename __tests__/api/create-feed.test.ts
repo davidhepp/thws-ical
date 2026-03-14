@@ -48,7 +48,7 @@ describe("POST /api/create-feed", () => {
       method: "POST",
       body: JSON.stringify({ urls: ["http://feed.ics"], selectedCourses: [] }),
     });
-    const res2 = await POST(req2);
+    await POST(req2);
     // Wait empty selectedCourses array should or shouldn't proceed?
     // Route says: `urls.length === 0 || !selectedCourses || !Array.isArray(selectedCourses)`
     // Empty selected courses IS an array format. But let's check what the route actually does:
