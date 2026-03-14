@@ -5,6 +5,7 @@ import ICAL from "ical.js";
  * Ignores events without a summary.
  */
 // note: has to be any[] because ical.js returns nested arrays
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function extractCourses(jcalDataArray: any[]): string[] {
   const uniqueCourses = new Set<string>();
 
