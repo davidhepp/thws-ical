@@ -36,6 +36,7 @@ jobs:
         run: npm run test
 
       - name: "notify vercel"
+        if: always()
         uses: "vercel/repository-dispatch/actions/status@v1"
         with:
           name: "Vercel - thws-ical: unit-tests"
