@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
+    "@vercel/analytics": "^2.0.1",
     "drizzle-orm": "^0.45.1",
     "ical-generator": "^10.0.0",
     "ical.js": "^2.2.1",
