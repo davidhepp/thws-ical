@@ -39,7 +39,8 @@ export async function GET(
           headers: {
             "Content-Type": "text/calendar; charset=utf-8",
             "Content-Disposition": `inline; filename="${filename}"`,
-            "Cache-Control": "public, s-maxage=900, stale-while-revalidate=60",
+            // s-maxage: CDN caches for 30 min; stale-while-revalidate: serve stale for 60s while refreshing
+            "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
           },
         });
       }
@@ -137,7 +138,8 @@ export async function GET(
 
     if (redis) {
       try {
-        await redis.set(cacheKey, calendarString, { ex: 900 });
+        // ex: Redis TTL — auto-delete after 30 min so the feed is re-fetched from THWS
+        await redis.set(cacheKey, calendarString, { ex: 1800 });
       } catch (e) {
         console.warn("Error setting redis cache:", e);
       }
@@ -147,7 +149,8 @@ export async function GET(
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `inline; filename="${filename}"`,
-        "Cache-Control": "public, s-maxage=900, stale-while-revalidate=60",
+        // Same CDN caching as the Redis-hit path above
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
       },
     });
   } catch (error) {
