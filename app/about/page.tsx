@@ -116,16 +116,26 @@ export default function AboutPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center text-sm text-slate-500">
-          made with ❤️ by{" "}
-          <a
-            href="https://github.com/davidhepp"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-slate-700 hover:text-orange-600 transition-colors underline underline-offset-4 decoration-slate-300 hover:decoration-orange-600"
-          >
-            davidhepp
-          </a>
+        <div className="flex flex-col gap-3 items-center justify-center text-center text-sm text-slate-500">
+          <p>
+            made with ❤️ by{" "}
+            <a
+              href="https://github.com/davidhepp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-slate-700 hover:text-orange-600 transition-colors underline underline-offset-4 decoration-slate-300 hover:decoration-orange-600"
+            >
+              davidhepp
+            </a>
+          </p>
+          <p>
+            <Link
+              href="/about/privacy"
+              className="hover:text-slate-700 transition-colors underline underline-offset-4 decoration-slate-300 hover:decoration-slate-400 text-xs"
+            >
+              Privacy Policy
+            </Link>
+          </p>
         </div>
       </main>
     </div>
