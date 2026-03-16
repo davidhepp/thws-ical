@@ -1,6 +1,6 @@
 # THWS iCal Filter
 
-A web app that lets you subscribe to a filtered version of your THWS lecture schedule. Paste one or more iCal links, pick only the courses you care about, and get a personal calendar URL you can subscribe to in Apple Calendar, Google Calendar, or Outlook — auto-updating whenever the source schedule changes.
+A web app that lets you subscribe to a filtered version of your THWS (or probably any university) lecture schedule. Paste one or more iCal links, pick only the courses you care about, and get a personal calendar URL you can subscribe to in Apple Calendar, Google Calendar, or Outlook — auto-updating whenever the source schedule changes.
 
 ## Features
 
