@@ -124,7 +124,7 @@ Deploy to anywhere you like. Add the following environment variables in your pro
 
 ## Notes
 
-- **Redis provider** — The caching layer uses the [`@upstash/redis`](https://github.com/upstash/upstash-redis) client, which talks to Upstash's REST-based Redis API. If you use a different Redis provider (e.g. a self-hosted Redis instance or another managed service), you will need to replace `@upstash/redis` with a compatible client such as [`ioredis`](https://github.com/redis/ioredis) and adjust the connection setup in `lib/redis.ts`.
+- **Redis provider** — The caching layer uses the [`@upstash/redis`](https://github.com/upstash/upstash-redis) client, which talks to Upstash's REST-based Redis API. If you use a different Redis provider (e.g. a self-hosted Redis instance or another managed service), you will need to replace `@upstash/redis` with a compatible client such as [`ioredis`](https://github.com/redis/ioredis) and adjust the Redis usage in `app/api/feed/[id]/route.ts`.
 - **Vercel Analytics** — [`@vercel/analytics`](https://vercel.com/docs/analytics) is imported and rendered in `app/layout.tsx`. If you are **not** deploying to Vercel, remove the `<Analytics />` component and uninstall the package (`npm uninstall @vercel/analytics`) to avoid unnecessary client-side requests.
 
 ## License
