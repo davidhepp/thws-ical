@@ -72,7 +72,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Caching
 
-Generated feeds are cached in **Upstash Redis** for **15 minutes** to reduce database queries and upstream fetches. This is especially useful when many calendar clients (e.g., iOS) poll the feed URL frequently. After 15 minutes the cache expires and the next request fetches fresh data from the source feeds.
+Generated feeds are cached in **Upstash Redis** for **30 minutes** to reduce database queries and upstream fetches. This is especially useful when many calendar clients (e.g., iOS) poll the feed URL frequently. After 30 minutes the cache expires and the next request fetches fresh data from the source feeds.
 
 ## API Routes
 
@@ -121,6 +121,11 @@ Deploy to anywhere you like. Add the following environment variables in your pro
 - `DATABASE_URL` — Neon PostgreSQL connection string
 - `UPSTASH_REDIS_REST_URL` — Upstash Redis REST URL
 - `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis REST token
+
+## Notes
+
+- **Redis provider** — The caching layer uses the [`@upstash/redis`](https://github.com/upstash/upstash-redis) client, which talks to Upstash's REST-based Redis API. If you use a different Redis provider (e.g. a self-hosted Redis instance or another managed service), you will need to replace `@upstash/redis` with a compatible client such as [`ioredis`](https://github.com/redis/ioredis) and adjust the connection setup in `lib/redis.ts`.
+- **Vercel Analytics** — [`@vercel/analytics`](https://vercel.com/docs/analytics) is imported and rendered in `app/layout.tsx`. If you are **not** deploying to Vercel, remove the `<Analytics />` component and uninstall the package (`npm uninstall @vercel/analytics`) to avoid unnecessary client-side requests.
 
 ## License
 
