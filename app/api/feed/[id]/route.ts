@@ -5,24 +5,20 @@ import { DateTime } from "luxon";
 import { db } from "@/db";
 import { feeds } from "@/db/schema";
 import { eq } from "drizzle-orm";
-
-function safeLuxonZone(tzid: string | undefined, fallback = "Europe/Berlin") {
-  if (!tzid) return fallback;
-  // Luxon/IANA zone validation
-  const test = DateTime.now().setZone(tzid);
-  return test.isValid ? tzid : fallback;
-}
+import { Redis } from "@upstash/redis";
+import { safeLuxonZone } from "@/lib/datetime/safeLuxonZone";
+import { decodeFeed } from "@/lib/ical/decodeFeed";
+import { filterEvents } from "@/lib/ical/filterEvents";
 
 function extractGroupsFromText(text?: string) {
   if (!text) return [] as string[];
   const groups = new Set<string>();
 
-  // Common patterns like "Gruppe: XYZ" or "Grp: XYZ" or just "Gruppe XYZ" or "Gr ABC"
   const patterns = [
-    /Gruppe[s]?\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,  // "Gruppe: ..." or "Gruppe - ..."
-    /Gr\.\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,        // "Gr.: ..." or "Gr. - ..."
-    /\bGruppe\b\s+([A-Za-z0-9\/_\-]+)/gi,           // "Gruppe XYZ"
-    /\bGr\b\.?\s+([A-Za-z0-9\/_\-]+)/gi,            // "Gr XYZ" or "Gr. XYZ"
+    /Gruppe[s]?\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,
+    /Gr\.\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,
+    /\bGruppe\b\s+([A-Za-z0-9\/_\-]+)/gi,
+    /\bGr\b\.?\s+([A-Za-z0-9\/_\-]+)/gi,
   ];
 
   for (const p of patterns) {
@@ -33,7 +29,7 @@ function extractGroupsFromText(text?: string) {
           .split(/[,;\/]/)
           .map((s) => s.trim())
           .filter((g) => g.length >= 2 && !/^[-_\s]*$/.test(g) && /[A-Za-z0-9]/.test(g))
-          .map((g) => g.replace(/^Gruppe\s+/i, ''))  // Remove "Gruppe " prefix if present
+          .map((g) => g.replace(/^Gruppe\s+/i, ''))
           .forEach((g) => groups.add(g));
       }
     }
@@ -63,6 +59,31 @@ export async function GET(
       return new NextResponse("Feed not found", { status: 404 });
     }
 
+    const urlParts = feedConfig.originalUrl.split("/");
+    const lastSegment = urlParts.pop() || "schedule";
+    const baseName = lastSegment.endsWith(".ics")
+      ? lastSegment.slice(0, -4)
+      : lastSegment;
+    const filename = `${baseName}_filtered.ics`;
+
+    const cacheKey = `feed:${id}`;
+    let redis: Redis | null = null;
+    try {
+      redis = Redis.fromEnv();
+      const cachedCalendar = await redis.get<string>(cacheKey);
+      if (cachedCalendar) {
+        return new NextResponse(cachedCalendar, {
+          headers: {
+            "Content-Type": "text/calendar; charset=utf-8",
+            "Content-Disposition": `inline; filename="${filename}"`,
+            "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("Redis caching error:", e);
+    }
+
     const urlsToFetch = [
       feedConfig.originalUrl,
       ...(feedConfig.additionalUrls || []),
@@ -75,19 +96,13 @@ export async function GET(
           throw new Error(`Failed to fetch original feed from ${url}`);
         }
         const buffer = await response.arrayBuffer();
-        let data = "";
-        try {
-          data = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-        } catch {
-          data = new TextDecoder("iso-8859-1").decode(buffer);
-        }
+        const data = decodeFeed(buffer);
         return ICAL.parse(data);
       }),
     );
 
     let vtzString: string | undefined;
 
-    // Use timezone from the first feed if available
     if (feedResponses.length > 0) {
       const comp = new ICAL.Component(feedResponses[0]);
       const vtz = comp.getFirstSubcomponent("vtimezone");
@@ -109,79 +124,78 @@ export async function GET(
     const selectedCoursesSet = new Set(feedConfig.selectedCourses || []);
     const selectedGroups = (feedConfig.selectedGroups as Record<string, string[]> | undefined) || {};
 
-    for (const jcalData of feedResponses) {
-      const comp = new ICAL.Component(jcalData);
-      const vevents = comp.getAllSubcomponents("vevent");
+    const filteredEvents = filterEvents(
+      feedResponses,
+      feedConfig.selectedCourses,
+    );
 
-      for (const vevent of vevents) {
-        const event = new ICAL.Event(vevent);
-        const summary = event.summary;
+    for (const event of filteredEvents) {
+      const summary = event.summary;
 
-        if (!summary || !selectedCoursesSet.has(summary)) continue;
+      // Check group filtering for this course
+      const courseSelectedGroups = selectedGroups[summary];
+      if (courseSelectedGroups && courseSelectedGroups.length > 0) {
+        const eventGroups = extractGroupsFromText(event.description);
+        const hasMatchingGroup = eventGroups.some((g) => courseSelectedGroups.includes(g));
+        if (!hasMatchingGroup) continue;
+      }
 
-        // Check group filtering for this course
-        const courseSelectedGroups = selectedGroups[summary];
-        if (courseSelectedGroups && courseSelectedGroups.length > 0) {
-          const eventGroups = extractGroupsFromText(event.description);
-          const hasMatchingGroup = eventGroups.some((g) => courseSelectedGroups.includes(g));
-          if (!hasMatchingGroup) continue;
-        }
+      const s = event.startDate;
+      const e = event.endDate;
 
-        const s = event.startDate;
-        const e = event.endDate;
+      const eventTzidRaw =
+        (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
+      const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
 
-        // Prefer the event's TZID if present; otherwise fallback to Europe/Berlin
-        const eventTzidRaw =
-          (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
-        const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
+      const start = DateTime.fromObject(
+        {
+          year: s.year,
+          month: s.month,
+          day: s.day,
+          hour: s.hour,
+          minute: s.minute,
+          second: s.second,
+        },
+        { zone: eventTzid },
+      );
 
-        const start = DateTime.fromObject(
-          {
-            year: s.year,
-            month: s.month,
-            day: s.day,
-            hour: s.hour,
-            minute: s.minute,
-            second: s.second,
-          },
-          { zone: eventTzid },
-        );
+      const end = DateTime.fromObject(
+        {
+          year: e.year,
+          month: e.month,
+          day: e.day,
+          hour: e.hour,
+          minute: e.minute,
+          second: e.second,
+        },
+        { zone: eventTzid },
+      );
 
-        const end = DateTime.fromObject(
-          {
-            year: e.year,
-            month: e.month,
-            day: e.day,
-            hour: e.hour,
-            minute: e.minute,
-            second: e.second,
-          },
-          { zone: eventTzid },
-        );
+      calendar.createEvent({
+        start,
+        end,
+        timezone: eventTzid,
+        summary: event.summary,
+        description: event.description,
+        location: event.location,
+      });
+    }
 
-        calendar.createEvent({
-          start,
-          end,
-          timezone: eventTzid, // ensures DTSTART/DTEND keep TZID
-          summary,
-          description: event.description,
-          location: event.location,
-        });
+    const calendarString = calendar.toString();
+
+    if (redis) {
+      try {
+        await redis.set(cacheKey, calendarString, { ex: 1800 });
+      } catch (e) {
+        console.warn("Error setting redis cache:", e);
       }
     }
 
-    const urlParts = feedConfig.originalUrl.split("/");
-    const lastSegment = urlParts.pop() || "schedule";
-    const baseName = lastSegment.endsWith(".ics")
-      ? lastSegment.slice(0, -4)
-      : lastSegment;
-    const filename = `${baseName}_filtered.ics`;
-
-    return new NextResponse(calendar.toString(), {
+    return new NextResponse(calendarString, {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `inline; filename="${filename}"`,
-        "Cache-Control": "no-store",
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
       },
     });
   } catch (error) {

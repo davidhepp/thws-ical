@@ -11,6 +11,10 @@ import {
   Search,
 } from "lucide-react";
 
+/**
+ * note:
+ * single page app because I cba to use modules for this
+ */
 export default function Home() {
   const [urls, setUrls] = useState<string[]>([""]);
   const [courses, setCourses] = useState<string[]>([]);
@@ -138,7 +142,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
+    <div className="min-h-dvh bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-4 sm:p-8 font-sans">
       <main className="w-full max-w-2xl bg-white/70 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-8 sm:p-12 relative z-10">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-amber-600 to-orange-600">
@@ -418,19 +422,12 @@ export default function Home() {
           </div>
         )}
         <div className="mt-8 text-center text-sm text-slate-500">
-          made with ❤️ by{" "}
           <a
-            href="https://github.com/davidhepp"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/about"
             className="font-medium text-slate-700 hover:text-orange-600 transition-colors underline underline-offset-4 decoration-slate-300 hover:decoration-orange-600"
           >
-            davidhepp
+            learn more
           </a>
-          <br />
-          <span className="text-xs text-gray-500 mt-2 opacity-50">
-            This project is not affiliated with the THWS
-          </span>
         </div>
       </main>
     </div>
