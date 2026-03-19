@@ -121,7 +121,7 @@ export async function GET(
         : "Europe/Berlin",
     });
 
-    const selectedCoursesSet = new Set(feedConfig.selectedCourses || []);
+
     const selectedGroups = (feedConfig.selectedGroups as Record<string, string[]> | undefined) || {};
 
     const filteredEvents = filterEvents(
