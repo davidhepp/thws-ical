@@ -10,6 +10,43 @@ import { safeLuxonZone } from "@/lib/datetime/safeLuxonZone";
 import { decodeFeed } from "@/lib/ical/decodeFeed";
 import { filterEvents } from "@/lib/ical/filterEvents";
 
+function extractGroupsFromText(text?: string) {
+  if (!text) return [] as string[];
+  const groups = new Set<string>();
+
+  const patterns = [
+    /Gruppe[s]?\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,
+    /Gr\.\s*[:\-]\s*([A-Za-z0-9\/_\-, ]+)/gi,
+    /\bGruppe\b\s+([A-Za-z0-9\/_\-]+)/gi,
+    /\bGr\b\.?\s+([A-Za-z0-9\/_\-]+)/gi,
+  ];
+
+  for (const p of patterns) {
+    let m;
+    while ((m = p.exec(text))) {
+      if (m[1]) {
+        m[1]
+          .split(/[,;\/]/)
+          .map((s) => s.trim())
+          .filter((g) => g.length >= 2 && !/^[-_\s]*$/.test(g) && /[A-Za-z0-9]/.test(g))
+          .map((g) => g.replace(/^Gruppe\s+/i, ''))
+          .forEach((g) => groups.add(g));
+      }
+    }
+  }
+
+  const paren = /\(([A-Za-z0-9\-_/]+)\)/g;
+  let pm;
+  while ((pm = paren.exec(text))) {
+    const token = pm[1];
+    if (token && token.length >= 2 && !/^[-_\s]*$/.test(token) && /[A-Za-z0-9]/.test(token)) {
+      groups.add(token);
+    }
+  }
+
+  return Array.from(groups);
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -39,7 +76,6 @@ export async function GET(
           headers: {
             "Content-Type": "text/calendar; charset=utf-8",
             "Content-Disposition": `inline; filename="${filename}"`,
-            // s-maxage: CDN caches for 30 min; stale-while-revalidate: serve stale for 60s while refreshing
             "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
           },
         });
@@ -67,7 +103,6 @@ export async function GET(
 
     let vtzString: string | undefined;
 
-    // Use timezone from the first feed if available
     if (feedResponses.length > 0) {
       const comp = new ICAL.Component(feedResponses[0]);
       const vtz = comp.getFirstSubcomponent("vtimezone");
@@ -86,16 +121,28 @@ export async function GET(
         : "Europe/Berlin",
     });
 
+
+    const selectedGroups = (feedConfig.selectedGroups as Record<string, string[]> | undefined) || {};
+
     const filteredEvents = filterEvents(
       feedResponses,
       feedConfig.selectedCourses,
     );
 
     for (const event of filteredEvents) {
+      const summary = event.summary;
+
+      // Check group filtering for this course
+      const courseSelectedGroups = selectedGroups[summary];
+      if (courseSelectedGroups && courseSelectedGroups.length > 0) {
+        const eventGroups = extractGroupsFromText(event.description);
+        const hasMatchingGroup = eventGroups.some((g) => courseSelectedGroups.includes(g));
+        if (!hasMatchingGroup) continue;
+      }
+
       const s = event.startDate;
       const e = event.endDate;
 
-      // Prefer the event's TZID if present; otherwise fallback to Europe/Berlin
       const eventTzidRaw =
         (s && (s.zone?.tzid as string | undefined)) ?? "Europe/Berlin";
       const eventTzid = safeLuxonZone(eventTzidRaw, "Europe/Berlin");
@@ -127,7 +174,7 @@ export async function GET(
       calendar.createEvent({
         start,
         end,
-        timezone: eventTzid, // ensures DTSTART/DTEND keep TZID
+        timezone: eventTzid,
         summary: event.summary,
         description: event.description,
         location: event.location,
@@ -138,7 +185,6 @@ export async function GET(
 
     if (redis) {
       try {
-        // ex: Redis TTL — auto-delete after 30 min so the feed is re-fetched from THWS
         await redis.set(cacheKey, calendarString, { ex: 1800 });
       } catch (e) {
         console.warn("Error setting redis cache:", e);
@@ -149,7 +195,6 @@ export async function GET(
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `inline; filename="${filename}"`,
-        // Same CDN caching as the Redis-hit path above
         "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=60",
       },
     });

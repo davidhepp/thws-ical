@@ -18,7 +18,9 @@ import {
 export default function Home() {
   const [urls, setUrls] = useState<string[]>([""]);
   const [courses, setCourses] = useState<string[]>([]);
+  const [courseGroups, setCourseGroups] = useState<Record<string, string[]>>({});
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
+  const [selectedGroups, setSelectedGroups] = useState<Record<string, string[]>>({});
   const [feedUrl, setFeedUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +46,8 @@ export default function Home() {
         throw new Error(data.error || "Failed to fetch courses");
       }
 
-      setCourses(data.courses);
+      setCourses(data.courses || []);
+      setCourseGroups(data.courseGroups || {});
       setStep(2);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to fetch courses");
@@ -59,6 +62,16 @@ export default function Home() {
         ? prev.filter((c) => c !== course)
         : [...prev, course],
     );
+  };
+
+  const toggleGroup = (course: string, group: string) => {
+    setSelectedGroups((prev) => {
+      const current = prev[course] || [];
+      const updated = current.includes(group)
+        ? current.filter((g) => g !== group)
+        : [...current, group];
+      return { ...prev, [course]: updated };
+    });
   };
 
   const generateFeed = async () => {
@@ -77,6 +90,7 @@ export default function Home() {
         body: JSON.stringify({
           urls: urls.filter((u) => u.trim() !== ""),
           selectedCourses,
+          selectedGroups,
         }),
       });
 
@@ -279,6 +293,57 @@ export default function Home() {
                 })}
             </div>
 
+            {selectedCourses.length > 0 && selectedCourses.some(course => (courseGroups[course] || []).length > 0) && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Select groups for your courses
+                  </h3>
+                  <p className="text-slate-500 text-sm">
+                    Choose which groups you want to see for each selected course
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {selectedCourses
+                    .filter(course => (courseGroups[course] || []).length > 0)
+                    .map((course) => {
+                    const availableGroups = courseGroups[course] || [];
+                    const selectedGroupsForCourse = selectedGroups[course] || [];
+
+                    return (
+                      <div
+                        key={course}
+                        className="bg-slate-50 rounded-xl border border-slate-100 p-4"
+                      >
+                        <h4 className="font-medium text-slate-800 mb-3">
+                          {course}
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {availableGroups.map((group) => {
+                            const isSelected = selectedGroupsForCourse.includes(group);
+                            return (
+                              <button
+                                key={group}
+                                onClick={() => toggleGroup(course, group)}
+                                className={`text-sm px-3 py-1 rounded-full border transition-all ${
+                                  isSelected
+                                    ? "bg-orange-600 text-white border-orange-600"
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                }`}
+                              >
+                                  {group.startsWith('Gruppe') ? group : `Gruppe ${group}`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4">
               <button
                 onClick={() => setStep(1)}
@@ -346,6 +411,7 @@ export default function Home() {
                 setUrls([""]);
                 setCourses([]);
                 setSelectedCourses([]);
+                setSelectedGroups({});
                 setFeedUrl("");
                 setSearchQuery("");
               }}

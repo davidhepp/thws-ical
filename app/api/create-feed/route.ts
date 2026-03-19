@@ -4,7 +4,7 @@ import { feeds } from "@/db/schema";
 
 export async function POST(request: Request) {
   try {
-    const { urls, selectedCourses } = await request.json();
+    const { urls, selectedCourses, selectedGroups } = await request.json();
 
     if (
       !urls ||
@@ -22,13 +22,24 @@ export async function POST(request: Request) {
     const originalUrl = urls[0];
     const additionalUrls = urls.length > 1 ? urls.slice(1) : [];
 
+    const feedData: {
+      originalUrl: string;
+      additionalUrls: string[] | null;
+      selectedCourses: string[];
+      selectedGroups?: Record<string, string[]>;
+    } = {
+      originalUrl,
+      additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
+      selectedCourses,
+    };
+
+    if (selectedGroups && Object.keys(selectedGroups).some(course => selectedGroups[course]?.length > 0)) {
+      feedData.selectedGroups = selectedGroups;
+    }
+
     const [newFeed] = await db
       .insert(feeds)
-      .values({
-        originalUrl,
-        additionalUrls: additionalUrls.length > 0 ? additionalUrls : null,
-        selectedCourses,
-      })
+      .values(feedData)
       .returning();
 
     return NextResponse.json({ id: newFeed.id });
